@@ -1,0 +1,311 @@
+/* 全局样式 */
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #34495e;
+    --accent-color: #16a085;
+    --light-color: #ecf0f1;
+    --dark-color: #2c3e50;
+    --success-color: #27ae60;
+    --warning-color: #f39c12;
+    --danger-color: #c0392b;
+    --text-color: #2c3e50;
+    --border-radius: 8px;
+    --box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* 全局字体和背景 */
+body {
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    background-color: #f8f9fa;
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+/* 导航栏样式 */
+.navbar {
+    background-color: white !important;
+    box-shadow: var(--box-shadow);
+    padding: 1rem 0;
+}
+
+.navbar-brand {
+    font-weight: 600;
+    color: var(--primary-color) !important;
+    font-size: 1.4rem;
+}
+
+.nav-link {
+    color: var(--secondary-color) !important;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.nav-link:hover {
+    color: var(--accent-color) !important;
+}
+
+/* 卡片样式 */
+.card {
+    border: none;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    background: white;
+    margin-bottom: 1.5rem;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background-color: white;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 1.25rem 1.5rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+.card-title {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* 按钮样式 */
+.btn {
+    border-radius: var(--border-radius);
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.btn-primary:hover {
+    background-color: #1abc9c;
+    border-color: #1abc9c;
+    transform: translateY(-1px);
+}
+
+.btn-outline-primary {
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+/* 表单样式 */
+.form-control {
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 0.2rem rgba(22, 160, 133, 0.25);
+}
+
+/* 进度条样式 */
+.progress {
+    background-color: #edf2f7;
+    border-radius: var(--border-radius);
+    height: 0.75rem !important;
+    margin: 0.5rem 0;
+}
+
+.progress-bar {
+    background-color: var(--success-color);
+    border-radius: var(--border-radius);
+}
+
+/* 徽章样式 */
+.badge {
+    padding: 0.5em 0.75em;
+    font-weight: 500;
+    border-radius: var(--border-radius);
+}
+
+.badge.bg-success {
+    background-color: var(--success-color) !important;
+}
+
+.badge.bg-warning {
+    background-color: var(--warning-color) !important;
+}
+
+.badge.bg-secondary {
+    background-color: var(--secondary-color) !important;
+}
+
+/* 表格样式 */
+.table {
+    background: white;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.05);
+    color: var(--secondary-color);
+    font-weight: 600;
+}
+
+.table td {
+    vertical-align: middle;
+    color: var(--text-color);
+}
+
+/* 模态框样式 */
+.modal-content {
+    border: none;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    background-color: white;
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    background-color: white;
+}
+
+/* 成员项样式 */
+.member-item {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+    border-radius: var(--border-radius);
+    transition: all 0.3s ease;
+    cursor: move;
+    user-select: none;
+}
+
+.member-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.member-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* 拖拽相关样式 */
+.member-list {
+    min-height: 50px;
+    padding: 10px;
+    border-radius: var(--border-radius);
+    transition: background-color 0.3s;
+}
+
+.member-list.droppable {
+    min-height: 50px;
+    padding: 10px;
+}
+
+.member-list.drag-over {
+    background-color: rgba(22, 160, 133, 0.1);
+}
+
+.member-item.dragging {
+    opacity: 0.5;
+    border: 2px dashed var(--accent-color) !important;
+}
+
+/* 组卡片样式 */
+.group-card {
+    height: 100%;
+    min-height: 250px;
+}
+
+.group-name {
+    border: none;
+    background: transparent;
+    font-weight: bold;
+    width: 100%;
+    transition: all 0.2s ease;
+}
+
+.group-name:focus {
+    background: white;
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(22, 160, 133, 0.25);
+    border-radius: var(--border-radius);
+}
+
+/* 作业内容样式 */
+.task-content {
+    margin: 1rem 0;
+    white-space: pre-wrap;
+}
+
+/* 响应式布局调整 */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn {
+        padding: 0.4rem 0.8rem;
+    }
+    
+    .navbar-brand {
+        font-size: 1.2rem;
+    }
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* CKEditor 样式调整 */
+.ck-editor__editable {
+    min-height: 200px;
+    border-radius: 0 0 var(--border-radius) var(--border-radius) !important;
+}
+
+.ck-toolbar {
+    border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+}
+
+/* Alert 样式 */
+.alert {
+    border-radius: var(--border-radius);
+    border: none;
+    box-shadow: var(--box-shadow);
+}
+
+.alert-info {
+    background-color: rgba(52, 152, 219, 0.1);
+    color: #2980b9;
+}

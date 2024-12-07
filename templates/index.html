@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">当前作业</h5>
+                {% if tasks and tasks.deadline %}
+                    <span class="badge bg-warning">截止时间: {{ tasks.deadline.strftime('%Y-%m-%d %H:%M') }}</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if tasks %}
+                    <h4>{{ tasks.title }}</h4>
+                    <div class="task-content mb-3">{{ tasks.content | safe }}</div>
+                    <div class="text-muted">
+                        <small>发布时间: {{ tasks.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                    </div>
+                {% else %}
+                    <p class="text-muted">暂无作业</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 总体进度统计卡片 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">总体完成情况</h5>
+            </div>
+            <div class="card-body">
+                {% set total_members = groups|count_members %}
+                {% set total_completed = groups|count_completed %}
+                {% set total_percent = (total_completed / total_members * 100) if total_members > 0 else 0 %}
+                {% set active_groups = groups|selectattr('members')|list|length %}
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">总进度 ({{ total_completed }}/{{ total_members }}人)</h6>
+                            <span class="badge bg-success">{{ "%.1f"|format(total_percent) }}%</span>
+                        </div>
+                        <div class="progress" style="height: 20px">
+                            <div class="progress-bar bg-success"
+                                role="progressbar"
+                                data-progress="{{ total_percent }}"
+                                aria-valuenow="{{ total_percent }}"
+                                aria-valuemin="0"
+                                aria-valuemax="100">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="border rounded p-3">
+                            <h3 class="text-primary mb-0">{{ active_groups }}</h3>
+                            <small class="text-muted">已组队数</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-3">
+                            <h3 class="text-success mb-0">{{ total_members }}</h3>
+                            <small class="text-muted">总人数</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row" id="groupContainer">
+    {% for group in groups %}
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 group-card" data-group-id="{{ group.id }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">{{ group.name }}</h5>
+                <div class="d-flex gap-2 align-items-center">
+                    <span class="badge bg-primary">{{ group.members|length }} 人</span>
+                    <button class="btn btn-sm btn-outline-primary add-member-btn" data-group-id="{{ group.id }}">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="progress" style="height: 15px">
+                    {% set completed = group.members|selectattr('status', 'true')|list|length %}
+                    {% set total = group.members|length %}
+                    {% set percent = (completed / total * 100) if total > 0 else 0 %}
+                    <div class="progress-bar bg-success"
+                        role="progressbar"
+                        data-progress="{{ percent }}"
+                        aria-valuenow="{{ percent }}"
+                        aria-valuemin="0"
+                        aria-valuemax="100">
+                        {{ completed }}/{{ total }}
+                    </div>
+                </div>
+                <div class="member-list droppable" data-group-id="{{ group.id }}">
+                    {% for member in group.members %}
+                    <div class="member-container" data-member-id="{{ member.id }}">
+                        <div class="member-item d-flex justify-content-between align-items-center mb-2 p-2 border rounded draggable" draggable="true">
+                            <span class="member-name">{{ member.user.username }}</span>
+                            <div class="member-actions">
+                                <span class="badge {% if member.status %}bg-success{% else %}bg-secondary{% endif %} toggle-status" 
+                                      data-member-id="{{ member.id }}" 
+                                      data-status="{{ member.status|int }}"
+                                      style="cursor: pointer;">
+                                    {{ '已完成' if member.status else '未完成' }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 添加成员模态框 -->
+<div class="modal fade" id="memberModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="memberModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="memberModalLabel">添加成员</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="memberName" class="form-label">成员用户名</label>
+                    <input type="text" class="form-control" id="memberName" required>
+                    <input type="hidden" id="memberGroupId">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="saveMember">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 获取模态框元素
+    const modalElement = document.getElementById('memberModal');
+    
+    // 初始化 Bootstrap 模态框
+    const memberModal = new bootstrap.Modal(modalElement);
+
+    // 监听模态框隐藏事件
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        // 移除遮罩层
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+            backdrop.remove();
+        }
+        document.body.classList.remove('modal-open');
+        document.body.style.removeProperty('padding-right');
+    });
+
+    // 添加成员按钮点击事件
+    document.querySelectorAll('.add-member-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const groupId = this.dataset.groupId;
+            document.getElementById('memberGroupId').value = groupId;
+            document.getElementById('memberName').value = '';
+            memberModal.show();
+        });
+    });
+
+    // 保存成员
+    document.getElementById('saveMember').addEventListener('click', function() {
+        const groupId = document.getElementById('memberGroupId').value;
+        const username = document.getElementById('memberName').value.trim();
+        
+        if (!username) {
+            alert('请输入用户名');
+            return;
+        }
+        
+        // 检查是否已存在同名成员
+        const groupCard = document.querySelector(`.group-card[data-group-id="${groupId}"]`);
+        if (groupCard) {
+            const existingMember = groupCard.querySelector(`.member-name:contains("${username}")`);
+            if (existingMember) {
+                alert('该小组中已存在同名成员');
+                return;
+            }
+        }
+        
+        fetch('/api/members', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: username,
+                group_id: groupId
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || '添加失败');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // 清空输入框并关闭模态框
+                document.getElementById('memberName').value = '';
+                memberModal.hide();
+                
+                // 刷新页面以显示新成员
+                location.reload();
+            } else {
+                throw new Error(data.error || '添加成员失败');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert(error.message || '添加成员失败，请重试');
+        });
+    });
+
+    // 切换状态
+    document.querySelectorAll('.toggle-status').forEach(badge => {
+        badge.addEventListener('click', function(e) {
+            // 阻止事件冒泡
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const currentStatus = this.dataset.status === '1';
+            
+            // 直接切换UI状态
+            this.dataset.status = !currentStatus ? '1' : '0';
+            this.textContent = !currentStatus ? '已完成' : '未完成';
+            this.classList.toggle('bg-success');
+            this.classList.toggle('bg-secondary');
+            
+            // 更新进度条
+            const groupCard = this.closest('.group-card');
+            const progressBar = groupCard.querySelector('.progress-bar');
+            const memberList = groupCard.querySelector('.member-list');
+            const totalMembers = memberList.querySelectorAll('.member-item').length;
+            const completedMembers = memberList.querySelectorAll('[data-status="1"]').length;
+            const percent = (completedMembers / totalMembers) * 100;
+            
+            progressBar.style.width = `${percent}%`;
+            progressBar.setAttribute('aria-valuenow', percent);
+            progressBar.textContent = `${completedMembers}/${totalMembers}`;
+            
+            // 更新总体进度
+            updateTotalProgress();
+            
+            // 静默发送请求服务器
+            const memberContainer = this.closest('.member-container');
+            if (memberContainer) {
+                const memberId = memberContainer.dataset.memberId;
+                fetch('/api/members/status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        member_id: memberId,
+                        status: !currentStatus
+                    })
+                })
+                .then(response => response.json())
+                .catch(error => {
+                    console.error('Error updating status:', error);
+                });
+            }
+            
+            return false;
+        });
+    });
+
+    // 更新总体进度的函数
+    function updateTotalProgress() {
+        const allMembers = document.querySelectorAll('.member-item').length;
+        const completedMembers = document.querySelectorAll('[data-status="1"]').length;
+        const totalPercent = (completedMembers / allMembers) * 100;
+        
+        const totalProgressBar = document.querySelector('.card-body .progress-bar');
+        const totalStats = document.querySelector('.card-body h6');
+        const totalPercentBadge = document.querySelector('.card-body .badge.bg-success');
+        
+        if (totalProgressBar && totalStats && totalPercentBadge) {
+            totalProgressBar.style.width = `${totalPercent}%`;
+            totalProgressBar.setAttribute('aria-valuenow', totalPercent);
+            totalStats.textContent = `总进度 (${completedMembers}/${allMembers}人)`;
+            totalPercentBadge.textContent = `${totalPercent.toFixed(1)}%`;
+        }
+    }
+
+    // 初始化拖拽功能
+    function initDragAndDrop() {
+        const draggables = document.querySelectorAll('.member-item.draggable');
+        const dropZones = document.querySelectorAll('.member-list.droppable');
+        
+        draggables.forEach(draggable => {
+            draggable.addEventListener('dragstart', (e) => {
+                console.log('Drag started');
+                draggable.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', draggable.closest('.member-container').dataset.memberId);
+            });
+
+            draggable.addEventListener('dragend', () => {
+                console.log('Drag ended');
+                draggable.classList.remove('dragging');
+            });
+        });
+
+        dropZones.forEach(zone => {
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                console.log('Drag over');
+                zone.classList.add('drag-over');
+            });
+
+            zone.addEventListener('dragleave', (e) => {
+                console.log('Drag leave');
+                zone.classList.remove('drag-over');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                console.log('Drop');
+                zone.classList.remove('drag-over');
+                
+                const memberId = e.dataTransfer.getData('text/plain');
+                const targetGroupId = zone.dataset.groupId;
+                const memberContainer = document.querySelector(`.member-container[data-member-id="${memberId}"]`);
+                const sourceGroupId = memberContainer.closest('.member-list').dataset.groupId;
+                
+                if (sourceGroupId === targetGroupId) {
+                    return; // 如果是同一组，不做任何操作
+                }
+                
+                fetch('/api/members/move', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        member_id: memberId,
+                        target_group_id: targetGroupId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.error || '移动成员失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('移动成员失败，请重试');
+                });
+            });
+        });
+    }
+
+    // 页面加载完成后初始化拖拽功能
+    document.addEventListener('DOMContentLoaded', function() {
+        initDragAndDrop();
+    });
+
+    // 设置进度条宽度
+    document.querySelectorAll('.progress-bar').forEach(bar => {
+        const progress = parseFloat(bar.dataset.progress);
+        bar.style.width = progress + '%';
+    });
+</script>
+
+<style>
+    .member-item.draggable {
+        cursor: move;
+    }
+    
+    .member-list.droppable {
+        min-height: 50px;
+        padding: 10px;
+        border-radius: 4px;
+        transition: background-color 0.3s;
+    }
+    
+    .member-list.drag-over {
+        background-color: rgba(0, 123, 255, 0.1);
+    }
+    
+    .member-item.dragging {
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,1041 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left"></i> 返回首页
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">发布新作业</h5>
+            </div>
+            <div class="card-body">
+                <form id="taskForm">
+                    <div class="mb-3">
+                        <label for="title" class="form-label">作业标题</label>
+                        <input type="text" class="form-control" id="title" name="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="content" class="form-label">作业内容</label>
+                        <textarea class="form-control" id="content" name="content"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deadline" class="form-label">截止时间（可选）</label>
+                        <input type="datetime-local" class="form-control" id="deadline" name="deadline">
+                    </div>
+                    <button type="button" class="btn btn-primary" id="submitTask">发布作业</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 作业列表 -->
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">作业列表</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>标题</th>
+                                <th>发布时间</th>
+                                <th>截止时间</th>
+                                <th>完成情况</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                            <tr>
+                                <td>{{ task.title }}</td>
+                                <td>{{ task.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>{{ task.deadline.strftime('%Y-%m-%d %H:%M') if task.deadline else '无' }}</td>
+                                <td>
+                                    {% set completed = task.completed_count if task.completed_count is defined else 0 %}
+                                    {% set total = task.total_count if task.total_count is defined else 0 %}
+                                    <div class="progress" style="height: 20px">
+                                        <div class="progress-bar bg-success"
+                                            role="progressbar"
+                                            data-progress="{{ (completed / total * 100) if total > 0 else 0 }}"
+                                            aria-valuenow="{{ (completed / total * 100) if total > 0 else 0 }}"
+                                            aria-valuemin="0"
+                                            aria-valuemax="100">
+                                            {{ completed }}/{{ total }}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary edit-task" 
+                                            data-task-id="{{ task.id }}"
+                                            data-task-title="{{ task.title }}"
+                                            data-task-content="{{ task.content }}"
+                                            data-task-deadline="{{ task.deadline.strftime('%Y-%m-%dT%H:%M') if task.deadline else '' }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger delete-task" data-task-id="{{ task.id }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center">暂无作业</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑作业模态框 -->
+<div class="modal fade" id="editTaskModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑作业</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editTaskForm">
+                    <input type="hidden" id="editTaskId">
+                    <div class="mb-3">
+                        <label for="editTitle" class="form-label">作业标题</label>
+                        <input type="text" class="form-control" id="editTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editContent" class="form-label">作业内容</label>
+                        <textarea class="form-control" id="editContent"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDeadline" class="form-label">截止时间（可选）</label>
+                        <input type="datetime-local" class="form-control" id="editDeadline">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="saveEditTask">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex gap-2">
+            <button class="btn btn-success" id="addGroup">添加小组</button>
+            <button class="btn btn-primary" id="importMembers">批量导入</button>
+            <button class="btn btn-info" id="autoGroup">自动分组</button>
+            <button class="btn btn-warning" id="resetGroups">重置所有分组</button>
+        </div>
+    </div>
+</div>
+
+<!-- 未分组卡片 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card h-100 group-card" data-group-id="{{ ungrouped.id }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">{{ ungrouped.name }}</h5>
+                <span class="badge bg-primary">{{ ungrouped.members|length }} 人</span>
+            </div>
+            <div class="card-body">
+                <div class="member-list droppable" data-group-id="{{ ungrouped.id }}">
+                    {% for member in ungrouped.members %}
+                    <div class="member-container" data-member-id="{{ member.id }}">
+                        <div class="member-item d-flex justify-content-between align-items-center mb-2 p-2 border rounded draggable" draggable="true">
+                            <span class="member-name">{{ member.user.username }}</span>
+                            <div class="member-actions">
+                                <button class="btn btn-sm btn-outline-success toggle-status" data-member-id="{{ member.id }}" data-status="{{ member.status|int }}">
+                                    {% if member.status %}
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    {% else %}
+                                    <i class="bi bi-check-circle"></i>
+                                    {% endif %}
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-member" data-member-id="{{ member.id }}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 分组卡片网格 -->
+<div class="row" id="groupGrid">
+    {% for group in groups if not group.is_ungrouped %}
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 group-card" data-group-id="{{ group.id }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">{{ group.name }}</h5>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-primary">{{ group.members|length }}/5人 {% if group.members|selectattr('status', 'true')|list|length > 0 %}({{ group.members|selectattr('status', 'true')|list|length }}已完成){% endif %}</span>
+                    <button class="btn btn-sm btn-outline-primary edit-group" data-group-id="{{ group.id }}" data-group-name="{{ group.name }}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger delete-group" data-group-id="{{ group.id }}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="member-list droppable" data-group-id="{{ group.id }}">
+                    {% for member in group.members %}
+                    <div class="member-container" data-member-id="{{ member.id }}">
+                        <div class="member-item d-flex justify-content-between align-items-center mb-2 p-2 border rounded draggable" draggable="true">
+                            <span class="member-name">{{ member.user.username }}</span>
+                            <div class="member-actions">
+                                <button class="btn btn-sm btn-outline-success toggle-status" data-member-id="{{ member.id }}" data-status="{{ member.status|int }}">
+                                    {% if member.status %}
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    {% else %}
+                                    <i class="bi bi-check-circle"></i>
+                                    {% endif %}
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-member" data-member-id="{{ member.id }}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 模态框持不变 -->
+<!-- 添加/编辑小组模态框 -->
+<div class="modal fade" id="groupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="groupModalTitle">添加小组</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="groupForm">
+                    <input type="hidden" id="groupId">
+                    <div class="mb-3">
+                        <label for="groupName" class="form-label">小组名称</label>
+                        <input type="text" class="form-control" id="groupName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="saveGroup">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加成员模态框 -->
+<div class="modal fade" id="memberModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加成员</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="memberForm">
+                    <input type="hidden" id="memberGroupId">
+                    <div class="mb-3">
+                        <label for="memberName" class="form-label">成员姓名</label>
+                        <input type="text" class="form-control" id="memberName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="saveMember">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量导入模态框 -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">批量导入成员</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="importForm">
+                    <div class="mb-3">
+                        <label for="memberList" class="form-label">成员名单（每行一个名字）</label>
+                        <textarea class="form-control" id="memberList" rows="10" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="importSubmit">导入</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 自动分组模态框 -->
+<div class="modal fade" id="autoGroupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">自动分组</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="autoGroupForm">
+                    <div class="mb-3">
+                        <label for="membersPerGroup" class="form-label">每组人数</label>
+                        <input type="number" class="form-control" id="membersPerGroup" value="5" min="1" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="autoGroupSubmit">开始分组</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block styles %}
+<style>
+.member-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    margin-bottom: 8px;
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+
+.member-item.draggable {
+    cursor: move;
+}
+
+.member-item.dragging {
+    opacity: 0.5;
+    border: 2px dashed #007bff;
+}
+
+.member-container {
+    min-height: 50px;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.member-container.droppable {
+    background-color: #f8f9fa;
+    border: 1px dashed #dee2e6;
+}
+
+.member-container.droppable.drag-over {
+    background-color: #e2e6ea;
+    border: 2px dashed #007bff;
+}
+
+.member-name {
+    flex-grow: 1;
+}
+
+.group-card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: box-shadow 0.3s ease;
+}
+
+.group-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // 初始化 TinyMCE
+    tinymce.init({
+        selector: '#content',
+        language: 'zh_CN',
+        height: 500,
+        plugins: [
+            'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
+            'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+            'insertdatetime', 'media', 'table', 'help', 'wordcount'
+        ],
+        toolbar: 'undo redo | blocks | ' +
+            'bold italic backcolor | alignleft aligncenter ' +
+            'alignright alignjustify | bullist numlist outdent indent | ' +
+            'removeformat | help',
+        content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 16px; }',
+        menubar: false,
+        statusbar: false,
+        branding: false,
+        elementpath: false,
+        resize: false,
+        language_url: 'https://cdn.jsdelivr.net/npm/tinymce-lang/langs/zh_CN.js'
+    });
+
+    // 处理作业提交
+    document.getElementById('submitTask').addEventListener('click', function() {
+        const title = document.getElementById('title').value.trim();
+        const content = tinymce.get('content').getContent();
+        const deadline = document.getElementById('deadline').value;
+
+        if (!title) {
+            alert('请输入作业标题');
+            return;
+        }
+
+        if (!content) {
+            alert('请输入作业内容');
+            return;
+        }
+
+        fetch('/api/tasks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                title: title,
+                content: content,
+                deadline: deadline || null
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert('作业发布成功');
+                location.reload();
+            } else {
+                alert(data.error || '发布失败，请重试');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('发布失败，请重试');
+        });
+    });
+
+    // 编辑作业按钮点击事件
+    document.querySelectorAll('.edit-task').forEach(button => {
+        button.addEventListener('click', function() {
+            const taskId = this.dataset.taskId;
+            const taskTitle = this.dataset.taskTitle;
+            const taskContent = this.dataset.taskContent;
+            const taskDeadline = this.dataset.taskDeadline;
+
+            document.getElementById('editTaskId').value = taskId;
+            document.getElementById('editTitle').value = taskTitle;
+            tinymce.get('editContent').setContent(taskContent);
+            document.getElementById('editDeadline').value = taskDeadline;
+
+            const editTaskModal = new bootstrap.Modal(document.getElementById('editTaskModal'));
+            editTaskModal.show();
+        });
+    });
+
+    // 保存编辑的作业
+    document.getElementById('saveEditTask').addEventListener('click', function() {
+        const taskId = document.getElementById('editTaskId').value;
+        const title = document.getElementById('editTitle').value.trim();
+        const content = tinymce.get('editContent').getContent();
+        const deadline = document.getElementById('editDeadline').value;
+
+        if (!title) {
+            alert('请输入作业标题');
+            return;
+        }
+
+        if (!content) {
+            alert('请输入作业内容');
+            return;
+        }
+
+        fetch(`/api/tasks/${taskId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                title: title,
+                content: content,
+                deadline: deadline || null
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('作业更新成功');
+                location.reload();
+            } else {
+                alert(data.error || '更新失败，请重试');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('更新失败，请重试');
+        });
+    });
+
+    // 删除作业按钮点击事件
+    document.querySelectorAll('.delete-task').forEach(button => {
+        button.addEventListener('click', function() {
+            const taskId = this.dataset.taskId;
+            if (confirm('确定要删除这个作业吗？此操作不可恢复。')) {
+                fetch(`/api/tasks/${taskId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('作业删除成功');
+                        location.reload();
+                    } else {
+                        alert(data.error || '删除失败，请重试');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('删除失败，请重试');
+                });
+            }
+        });
+    });
+
+    // 设置进度条宽度
+    document.querySelectorAll('.progress-bar').forEach(bar => {
+        const progress = parseFloat(bar.dataset.progress);
+        bar.style.width = progress + '%';
+    });
+
+    // 初始化所有模态框
+    const groupModal = new bootstrap.Modal(document.getElementById('groupModal'));
+    const memberModal = new bootstrap.Modal(document.getElementById('memberModal'));
+    const importModal = new bootstrap.Modal(document.getElementById('importModal'));
+    const autoGroupModal = new bootstrap.Modal(document.getElementById('autoGroupModal'));
+    
+    // 批量导入按钮点击事件
+    document.getElementById('importMembers').addEventListener('click', function() {
+        const importModal = new bootstrap.Modal(document.getElementById('importModal'));
+        importModal.show();
+    });
+
+    // 提交批量导入
+    document.getElementById('importSubmit').addEventListener('click', function() {
+        const memberList = document.getElementById('memberList').value;
+        if (!memberList.trim()) {
+            alert('请输入成员名单');
+            return;
+        }
+
+        // 将文本分割成数组，去除空行和首尾空格
+        const members = memberList.split('\n')
+            .map(name => name.trim())
+            .filter(name => name.length > 0);
+
+        if (members.length === 0) {
+            alert('请输入有效的成员名单');
+            return;
+        }
+
+        fetch('/api/members/import', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ members: members })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                let message = data.message;
+                if (data.errors && data.errors.length > 0) {
+                    message += '\n\n错误情况：\n' + data.errors.join('\n');
+                }
+                alert(message);
+                location.reload();
+            } else {
+                throw new Error(data.error || '导入失败');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('导入失败：' + error.message);
+        })
+        .finally(() => {
+            const importModal = bootstrap.Modal.getInstance(document.getElementById('importModal'));
+            if (importModal) {
+                importModal.hide();
+            }
+        });
+    });
+
+    // 自动分组按钮点击事件
+    document.getElementById('autoGroup').addEventListener('click', function() {
+        autoGroupModal.show();
+    });
+
+    // 提交自动分组
+    document.getElementById('autoGroupSubmit').addEventListener('click', function() {
+        const membersPerGroup = parseInt(document.getElementById('membersPerGroup').value);
+        
+        if (membersPerGroup < 1) {
+            alert('每组人数必须大于0');
+            return;
+        }
+
+        fetch('/api/members/auto-group', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ members_per_group: membersPerGroup })
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert('自动分组成功！');
+            autoGroupModal.hide();
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('自动分组失败，请重试');
+        });
+    });
+
+    // 绑定添加成员按钮点击事件
+    document.querySelectorAll('.add-member').forEach(button => {
+        button.addEventListener('click', function() {
+            const groupId = this.closest('.card').dataset.groupId;
+            if (!groupId) {
+                alert('无法获取小组信息，请刷新页面重试');
+                return;
+            }
+            document.getElementById('memberGroupId').value = groupId;
+            document.getElementById('memberName').value = '';
+            memberModal.show();
+        });
+    });
+
+    // 添加成员
+    document.getElementById('saveMember').addEventListener('click', function() {
+        const groupId = document.getElementById('memberGroupId').value;
+        const username = document.getElementById('memberName').value.trim();
+        
+        if (!username) {
+            alert('请输入成员姓名');
+            return;
+        }
+        
+        fetch('/api/members', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                group_id: groupId,
+                username: username
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 检查是否已存在成员列表容器
+                let memberListRow = document.querySelector(`.member-container[data-group-id="${groupId}"]`);
+                let memberContainer;
+                
+                if (!memberListRow) {
+                    // 创建成员列表行
+                    memberListRow = document.createElement('div');
+                    memberListRow.classList.add('member-container');
+                    memberListRow.setAttribute('data-group-id', groupId);
+                    memberListRow.innerHTML = `
+                        <div class="member-item" data-member-id="${data.member.id}">
+                            <span class="member-name">${data.member.user.username}</span>
+                            <span class="badge bg-secondary">未完成</span>
+                            <button class="btn btn-sm btn-outline-danger delete-member">删除</button>
+                        </div>
+                    `;
+                    
+                    // 插入到组行之后
+                    const groupRow = document.querySelector(`.group-card[data-group-id="${groupId}"]`);
+                    if (groupRow) {
+                        groupRow.querySelector('.card-body').appendChild(memberListRow);
+                    }
+                } else {
+                    // 创建新的成员行
+                    const newRow = document.createElement('div');
+                    newRow.classList.add('member-item');
+                    newRow.setAttribute('data-member-id', data.member.id);
+                    newRow.innerHTML = `
+                        <span class="member-name">${data.member.user.username}</span>
+                        <span class="badge bg-secondary">未完成</span>
+                        <button class="btn btn-sm btn-outline-danger delete-member">删除</button>
+                    `;
+                    
+                    memberListRow.appendChild(newRow);
+                }
+                
+                // 更新组的成员数量
+                const groupCard = document.querySelector(`.group-card[data-group-id="${groupId}"]`);
+                if (groupCard) {
+                    const memberCount = groupCard.querySelector('.member-count');
+                    if (memberCount) {
+                        memberCount.textContent = `成员：${memberListRow.children.length}/5`;
+                    }
+                }
+                
+                // 关闭模态框
+                memberModal.hide();
+                
+                // 清空输入框
+                document.getElementById('memberName').value = '';
+            } else {
+                alert(data.error || '添加成员失败');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('添加成员失败，请重试');
+        });
+    });
+
+    // 绑定成员按钮事件（删除和状态切换）
+    function bindMemberButtons(container) {
+        container.querySelectorAll('.toggle-status').forEach(button => {
+            button.addEventListener('click', function() {
+                const memberId = this.dataset.memberId;
+                const currentStatus = parseInt(this.dataset.status);
+                
+                fetch('/api/members/status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        member_id: memberId,
+                        status: !currentStatus
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 更新按钮状态
+                        this.dataset.status = (!currentStatus).toString();
+                        const icon = this.querySelector('i');
+                        if (currentStatus) {
+                            icon.classList.replace('bi-check-circle-fill', 'bi-check-circle');
+                        } else {
+                            icon.classList.replace('bi-check-circle', 'bi-check-circle-fill');
+                        }
+                        
+                        // 更新组的完成人数
+                        const groupCard = this.closest('.group-card');
+                        if (groupCard) {
+                            const memberList = groupCard.querySelector('.member-list');
+                            const badge = groupCard.querySelector('.badge');
+                            if (badge && memberList) {
+                                const total = memberList.querySelectorAll('.member-container').length;
+                                const completed = memberList.querySelectorAll('.toggle-status[data-status="1"]').length;
+                                badge.textContent = `${total} 人 (${completed} 已完成)`;
+                            }
+                        }
+                    } else {
+                        alert(data.error || '更新状态失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('更新状态失败，请重试');
+                });
+            });
+        });
+        
+        container.querySelectorAll('.delete-member').forEach(button => {
+            button.addEventListener('click', function() {
+                if (!confirm('确定要删除这个成员吗？')) {
+                    return;
+                }
+                
+                const memberId = this.dataset.memberId;
+                const memberContainer = this.closest('.member-container');
+                const groupId = memberContainer.closest('.member-list').dataset.groupId;
+                
+                fetch('/api/members/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        member_id: memberId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        memberContainer.remove();
+                        
+                        // 更新组的成员数量
+                        const groupCard = document.querySelector(`.group-card[data-group-id="${groupId}"]`);
+                        if (groupCard) {
+                            const badge = groupCard.querySelector('.badge');
+                            const memberList = groupCard.querySelector('.member-list');
+                            if (badge && memberList) {
+                                badge.textContent = `${memberList.children.length} 人`;
+                            }
+                        }
+                    } else {
+                        alert(data.error || '删除成员失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('删除成员失败，请重试');
+                });
+            });
+        });
+    }
+
+    // 初始化时绑定所有成员按钮事件
+    document.querySelectorAll('.member-container').forEach(container => {
+        bindMemberButtons(container);
+    });
+
+    // 初始化拖拽功能
+    function initDragAndDrop() {
+        const draggables = document.querySelectorAll('.member-item.draggable');
+        const dropZones = document.querySelectorAll('.member-list.droppable');
+        
+        draggables.forEach(draggable => {
+            draggable.addEventListener('dragstart', (e) => {
+                console.log('Drag started');
+                draggable.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', draggable.closest('.member-container').dataset.memberId);
+            });
+
+            draggable.addEventListener('dragend', () => {
+                console.log('Drag ended');
+                draggable.classList.remove('dragging');
+            });
+        });
+
+        dropZones.forEach(zone => {
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                console.log('Drag over');
+                zone.classList.add('drag-over');
+            });
+
+            zone.addEventListener('dragleave', (e) => {
+                console.log('Drag leave');
+                zone.classList.remove('drag-over');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                console.log('Drop');
+                zone.classList.remove('drag-over');
+                
+                const memberId = e.dataTransfer.getData('text/plain');
+                const targetGroupId = zone.dataset.groupId;
+                const memberContainer = document.querySelector(`.member-container[data-member-id="${memberId}"]`);
+                const sourceGroupId = memberContainer.closest('.member-list').dataset.groupId;
+                
+                if (sourceGroupId === targetGroupId) {
+                    return; // 如果是同一组，不做任何操作
+                }
+                
+                fetch('/api/members/move', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        member_id: memberId,
+                        target_group_id: targetGroupId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 移动成员容器到新的组
+                        zone.appendChild(memberContainer);
+                        
+                        // 更新源组和目标组的成员数量
+                        const sourceGroup = document.querySelector(`.group-card[data-group-id="${sourceGroupId}"] .badge`);
+                        const targetGroup = document.querySelector(`.group-card[data-group-id="${targetGroupId}"] .badge`);
+                        
+                        if (sourceGroup) {
+                            const sourceCount = document.querySelector(`.member-list[data-group-id="${sourceGroupId}"]`).children.length;
+                            sourceGroup.textContent = `${sourceCount} 人`;
+                        }
+                        
+                        if (targetGroup) {
+                            const targetCount = document.querySelector(`.member-list[data-group-id="${targetGroupId}"]`).children.length;
+                            targetGroup.textContent = `${targetCount} 人`;
+                        }
+                    } else {
+                        alert(data.error || '移动成员失败');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('移动成员失败，请重试');
+                });
+            });
+        });
+    }
+
+    // 页面加载完成后初始化拖拽功能
+    document.addEventListener('DOMContentLoaded', function() {
+        initDragAndDrop();
+    });
+
+    // 添加小组按钮点击事件
+    document.getElementById('addGroup').addEventListener('click', function() {
+        document.getElementById('groupModalTitle').textContent = '添加小组';
+        document.getElementById('groupId').value = '';
+        document.getElementById('groupName').value = '';
+        groupModal.show();
+    });
+
+    // 保存小组
+    document.getElementById('saveGroup').addEventListener('click', function() {
+        const groupId = document.getElementById('groupId').value;
+        const groupName = document.getElementById('groupName').value.trim();
+        
+        if (!groupName) {
+            alert('请输入小组名称');
+            return;
+        }
+
+        const method = groupId ? 'PUT' : 'POST';
+        const data = {
+            name: groupName
+        };
+        if (groupId) {
+            data.id = groupId;
+        }
+
+        fetch('/api/groups', {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            groupModal.hide();
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('操作失败，请重试');
+        });
+    });
+
+    // 编辑小组按钮点击事件
+    document.querySelectorAll('.edit-group').forEach(button => {
+        button.addEventListener('click', function() {
+            const row = this.closest('.group-card');
+            const groupId = row.dataset.groupId;
+            const groupName = row.querySelector('.card-title').textContent;
+            
+            document.getElementById('groupModalTitle').textContent = '编辑小组';
+            document.getElementById('groupId').value = groupId;
+            document.getElementById('groupName').value = groupName;
+            groupModal.show();
+        });
+    });
+
+    // 删除小组按钮点击事件
+    document.querySelectorAll('.delete-group').forEach(button => {
+        button.addEventListener('click', function() {
+            if (!confirm('确定要删除这个小组吗？')) {
+                return;
+            }
+
+            const row = this.closest('.group-card');
+            const groupId = row.dataset.groupId;
+
+            fetch(`/api/groups/${groupId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                location.reload();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('删除失败，请重试');
+            });
+        });
+    });
+
+    // 重置所有分组按钮点击事件
+    document.getElementById('resetGroups').addEventListener('click', function() {
+        if (!confirm('确定要重置所有分组吗？这将删除所有现有的组和成员数据！')) {
+            return;
+        }
+
+        fetch('/api/groups/reset', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('重置失败，请重试');
+        });
+    });
+</script>
+{% endblock %}
+
+</```
+rewritten_file>

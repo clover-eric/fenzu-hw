@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: fenzu-hw
+    restart: always
+    ports:
+      - "5678:5678"
+    volumes:
+      - ./instance:/app/instance
+      - ./static/uploads:/app/static/uploads
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=production
+      - SECRET_KEY=your-secret-key-here
+    networks:
+      - fenzu-network
+
+networks:
+  fenzu-network:
+    driver: bridge 
